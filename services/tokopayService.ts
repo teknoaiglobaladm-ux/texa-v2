@@ -1,10 +1,12 @@
 // TokoPay Payment Gateway Service
 // API Documentation: https://docs.tokopay.id
 
-import { doc, getDoc, setDoc, collection, addDoc, updateDoc, serverTimestamp } from 'firebase/firestore/lite';
-import { db, COLLECTIONS } from './firebase';
-import { auth } from './firebase';
+import { doc, getDoc, collection, addDoc, updateDoc, serverTimestamp } from 'firebase/firestore/lite';
+import { db } from './firebase';
 import CryptoJS from 'crypto-js';
+
+// Collection names
+const ORDERS_COLLECTION = 'texa_orders';
 
 // TokoPay Configuration from Environment
 export const TOKOPAY_CONFIG = {
@@ -154,7 +156,7 @@ export const createTokopayOrder = async (
 // Save Order to Firestore
 export const saveOrderToFirestore = async (order: TokopayOrder): Promise<string> => {
     try {
-        const ordersRef = collection(db, COLLECTIONS.ORDERS || 'orders');
+        const ordersRef = collection(db, ORDERS_COLLECTION);
         const docRef = await addDoc(ordersRef, {
             ...order,
             createdAt: serverTimestamp(),
@@ -175,8 +177,7 @@ export const updateOrderStatus = async (
 ): Promise<boolean> => {
     try {
         // Find order by refId
-        const ordersRef = collection(db, COLLECTIONS.ORDERS || 'orders');
-        const q = doc(db, COLLECTIONS.ORDERS || 'orders', refId);
+        const q = doc(db, ORDERS_COLLECTION, refId);
         const orderDoc = await getDoc(q);
 
         if (orderDoc.exists()) {

@@ -8,7 +8,7 @@ import {
     SubscriptionSettings,
     SubscriptionPackage,
     DEFAULT_SETTINGS
-} from '../services/subscriptionService';
+} from '../services/supabaseSubscriptionService';
 
 interface SubscriptionSettingsProps {
     showToast: (message: string, type: 'success' | 'error') => void;

@@ -9,7 +9,7 @@ import {
   SubscriptionSettings,
   formatIDR,
   DEFAULT_SETTINGS
-} from '../services/subscriptionService';
+} from '../services/supabaseSubscriptionService';
 import { checkExtensionInstalled } from '../services/extensionService';
 import { usePopupState } from '../services/popupContext';
 import ExtensionWarningPopup from './ExtensionWarningPopup';

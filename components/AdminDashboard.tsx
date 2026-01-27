@@ -32,7 +32,7 @@ import {
   RevenueSharePerson,
   RevenueShareRole,
   formatIDR
-} from '../services/subscriptionService';
+} from '../services/supabaseSubscriptionService';
 import {
   ExtensionSettings,
   DEFAULT_EXTENSION_SETTINGS,

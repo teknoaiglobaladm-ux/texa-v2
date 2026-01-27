@@ -1,5 +1,269 @@
-// Supabase Subscription Service - Manage subscription packages
+// Supabase Subscription Service - Full Subscription Management
 import { supabase } from './supabaseService';
+
+const SETTINGS_TABLE = 'settings';
+const SUBSCRIPTION_DOC = 'subscription_config';
+const REVENUE_SHARE_DOC = 'revenue_share_config';
+
+// ============ SUBSCRIPTION SETTINGS INTERFACES ============
+
+export interface PerToolDurationTier {
+    id: string;
+    name: string;
+    duration: number;
+    price: number;
+    discountPrice?: number;
+    popular?: boolean;
+    active: boolean;
+}
+
+export interface SubscriptionSettings {
+    paymentUrl: string;
+    paymentApiUrl?: string;
+    successRedirectUrl: string;
+    failedRedirectUrl: string;
+    pendingRedirectUrl?: string;
+    webhookUrl?: string;
+    webhookSecret?: string;
+    packages: SubscriptionPackageLegacy[];
+    popupTitle?: string;
+    popupDescription?: string;
+    buttonText?: string;
+    whatsappNumber?: string;
+    enableAutoActivation?: boolean;
+    enableManualPayment?: boolean;
+    enableQRIS?: boolean;
+    enablePerToolPurchase?: boolean;
+    perToolDurationTiers?: PerToolDurationTier[];
+    perToolPaymentUrl?: string;
+    perToolPopupTitle?: string;
+    perToolPopupDescription?: string;
+    defaultToolPrice?: number;
+    defaultToolDuration?: number;
+    updatedAt?: string;
+    updatedBy?: string;
+}
+
+export interface SubscriptionPackageLegacy {
+    id: string;
+    name: string;
+    duration: number;
+    price: number;
+    discountPrice?: number;
+    features: string[];
+    popular?: boolean;
+    active: boolean;
+}
+
+// Alias for backward compatibility with components using SubscriptionPackage
+export type SubscriptionPackage = SubscriptionPackageLegacy;
+
+export const DEFAULT_SETTINGS: SubscriptionSettings = {
+    paymentUrl: '',
+    successRedirectUrl: '',
+    failedRedirectUrl: '',
+    packages: [
+        {
+            id: 'pkg-7',
+            name: 'Paket 7 Hari',
+            duration: 7,
+            price: 25000,
+            features: ['Akses semua AI Tools', 'Support via WhatsApp'],
+            active: true
+        },
+        {
+            id: 'pkg-30',
+            name: 'Paket 30 Hari',
+            duration: 30,
+            price: 75000,
+            discountPrice: 65000,
+            features: ['Akses semua AI Tools', 'Priority Support', 'Update Fitur Terbaru'],
+            popular: true,
+            active: true
+        },
+        {
+            id: 'pkg-90',
+            name: 'Paket 90 Hari',
+            duration: 90,
+            price: 180000,
+            discountPrice: 150000,
+            features: ['Akses semua AI Tools', 'Priority Support 24/7', 'Early Access Fitur Baru', 'Bonus Tools Eksklusif'],
+            active: true
+        }
+    ],
+    popupTitle: 'Berlangganan Premium',
+    popupDescription: 'Pilih paket yang sesuai untuk akses penuh semua AI Tools premium.',
+    buttonText: 'Beli Sekarang',
+    enableAutoActivation: false,
+    enableManualPayment: true,
+    enableQRIS: false,
+    enablePerToolPurchase: true,
+    perToolDurationTiers: [
+        { id: 'tier-7', name: '7 Hari', duration: 7, price: 15000, active: true },
+        { id: 'tier-14', name: '2 Minggu', duration: 14, price: 25000, discountPrice: 22000, popular: true, active: true },
+        { id: 'tier-30', name: '1 Bulan', duration: 30, price: 45000, discountPrice: 39000, active: true }
+    ],
+    perToolPopupTitle: 'Beli Akses Tool',
+    perToolPopupDescription: 'Pilih durasi akses untuk tool ini'
+};
+
+// ============ SUBSCRIPTION SETTINGS FUNCTIONS ============
+
+export const getSubscriptionSettings = async (): Promise<SubscriptionSettings> => {
+    try {
+        const { data, error } = await supabase
+            .from(SETTINGS_TABLE)
+            .select('value')
+            .eq('key', SUBSCRIPTION_DOC)
+            .single();
+
+        if (error || !data) return DEFAULT_SETTINGS;
+        return { ...DEFAULT_SETTINGS, ...data.value } as SubscriptionSettings;
+    } catch (error) {
+        console.error('Error getting subscription settings:', error);
+        return DEFAULT_SETTINGS;
+    }
+};
+
+export const subscribeToSettings = (callback: (settings: SubscriptionSettings) => void) => {
+    // Initial fetch
+    getSubscriptionSettings().then(callback);
+
+    // Polling fallback (Supabase realtime can be used if enabled)
+    let stopped = false;
+    const intervalId = setInterval(async () => {
+        if (stopped) return;
+        const settings = await getSubscriptionSettings();
+        callback(settings);
+    }, 10000);
+
+    return () => {
+        stopped = true;
+        clearInterval(intervalId);
+    };
+};
+
+export const saveSubscriptionSettings = async (
+    settings: Partial<SubscriptionSettings>,
+    updatedBy?: string
+): Promise<boolean> => {
+    try {
+        const current = await getSubscriptionSettings();
+        const merged = { ...current, ...settings };
+
+        const { error } = await supabase
+            .from(SETTINGS_TABLE)
+            .upsert({
+                key: SUBSCRIPTION_DOC,
+                value: {
+                    ...merged,
+                    updatedAt: new Date().toISOString(),
+                    updatedBy: updatedBy || 'admin'
+                }
+            }, { onConflict: 'key' });
+
+        return !error;
+    } catch (error) {
+        console.error('Error saving subscription settings:', error);
+        return false;
+    }
+};
+
+// Format price to IDR
+export const formatIDR = (amount: number): string => {
+    return new Intl.NumberFormat('id-ID', {
+        style: 'currency',
+        currency: 'IDR',
+        minimumFractionDigits: 0
+    }).format(amount);
+};
+
+// Generate unique package ID
+export const generatePackageId = (): string => {
+    return `pkg-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+};
+
+// ============ REVENUE SHARE ============
+
+export type RevenueShareRole = 'OWNER' | 'ADMIN' | 'KARYAWAN';
+
+export interface RevenueSharePerson {
+    id: string;
+    name: string;
+    role: RevenueShareRole;
+    percent: number;
+}
+
+export interface RevenueShareSettings {
+    people: RevenueSharePerson[];
+    updatedAt?: string;
+    updatedBy?: string;
+}
+
+export const DEFAULT_REVENUE_SHARE: RevenueShareSettings = {
+    people: [
+        { id: 'owner-1', name: 'Owner', role: 'OWNER', percent: 50 },
+        { id: 'admin-1', name: 'Admin', role: 'ADMIN', percent: 30 },
+        { id: 'karyawan-1', name: 'Karyawan', role: 'KARYAWAN', percent: 20 }
+    ]
+};
+
+export const getRevenueShareSettings = async (): Promise<RevenueShareSettings> => {
+    try {
+        const { data, error } = await supabase
+            .from(SETTINGS_TABLE)
+            .select('value')
+            .eq('key', REVENUE_SHARE_DOC)
+            .single();
+
+        if (error || !data) return DEFAULT_REVENUE_SHARE;
+        return { ...DEFAULT_REVENUE_SHARE, ...data.value } as RevenueShareSettings;
+    } catch (error) {
+        console.error('Error getting revenue share settings:', error);
+        return DEFAULT_REVENUE_SHARE;
+    }
+};
+
+export const subscribeToRevenueShareSettings = (callback: (settings: RevenueShareSettings) => void) => {
+    getRevenueShareSettings().then(callback);
+
+    let stopped = false;
+    const intervalId = setInterval(async () => {
+        if (stopped) return;
+        const settings = await getRevenueShareSettings();
+        callback(settings);
+    }, 10000);
+
+    return () => {
+        stopped = true;
+        clearInterval(intervalId);
+    };
+};
+
+export const saveRevenueShareSettings = async (
+    settings: Partial<RevenueShareSettings>,
+    updatedBy?: string
+): Promise<boolean> => {
+    try {
+        const { error } = await supabase
+            .from(SETTINGS_TABLE)
+            .upsert({
+                key: REVENUE_SHARE_DOC,
+                value: {
+                    ...settings,
+                    updatedAt: new Date().toISOString(),
+                    updatedBy: updatedBy || 'admin'
+                }
+            }, { onConflict: 'key' });
+
+        return !error;
+    } catch (error) {
+        console.error('Error saving revenue share settings:', error);
+        return false;
+    }
+};
+
+// ============ SUBSCRIPTION PACKAGES (Table-based) ============
 
 // Subscription Package Interface
 export interface SubscriptionPackage {

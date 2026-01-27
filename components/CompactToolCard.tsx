@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { AITool } from '../types';
-import { formatIDR, subscribeToSettings, SubscriptionSettings, DEFAULT_SETTINGS } from '../services/subscriptionService';
+import { formatIDR, subscribeToSettings, SubscriptionSettings, DEFAULT_SETTINGS } from '../services/supabaseSubscriptionService';
 import { useNavigate } from 'react-router-dom';
 import { auth } from '../services/firebase';
 import { isUrlIframeAllowed } from '../utils/iframePolicy';

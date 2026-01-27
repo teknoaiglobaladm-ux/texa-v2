@@ -45,7 +45,7 @@ import {
   subscribeToThemeSettings,
   saveThemeSettings,
   applyThemeSettings
-} from '../services/themeService';
+} from '../services/supabaseThemeService';
 import {
   DEFAULT_HEADER_SETTINGS,
   HeaderContactInfo,

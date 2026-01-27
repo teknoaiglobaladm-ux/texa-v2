@@ -3,11 +3,11 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Prism from './Prism';
 import {
+  signIn,
+  signUp,
   signInWithGoogle,
-  signInWithEmail,
-  signUpWithEmail,
   TexaUser
-} from '../services/firebase';
+} from '../services/supabaseAuthService';
 
 interface LoginProps {
   onLogin: (user: TexaUser) => void;
@@ -33,8 +33,6 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
     setError(null);
 
     try {
-      let user: TexaUser;
-
       if (isRegister) {
         // Sign Up
         if (!name.trim()) {
@@ -43,14 +41,21 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
         if (password.length < 6) {
           throw new Error('Password minimal 6 karakter');
         }
-        user = await signUpWithEmail(email, password, name);
+        const { user, error: signUpError } = await signUp(email, password, name);
+        if (signUpError) throw new Error(signUpError);
+        if (user) {
+          onLogin(user);
+          navigate('/', { replace: true });
+        }
       } else {
         // Sign In
-        user = await signInWithEmail(email, password);
+        const { user, error: signInError } = await signIn(email, password);
+        if (signInError) throw new Error(signInError);
+        if (user) {
+          onLogin(user);
+          navigate('/', { replace: true });
+        }
       }
-
-      onLogin(user);
-      navigate('/', { replace: true });
     } catch (err: any) {
       setError(err.message || 'Terjadi kesalahan');
     } finally {
@@ -64,12 +69,11 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
     setError(null);
 
     try {
-      const user = await signInWithGoogle();
-      onLogin(user);
-      navigate('/', { replace: true });
+      const { error: googleError } = await signInWithGoogle();
+      if (googleError) throw new Error(googleError);
+      // Google OAuth will redirect, so we don't need to call onLogin here
     } catch (err: any) {
       setError(err.message || 'Gagal login dengan Google');
-    } finally {
       setLoading(false);
     }
   };
@@ -231,12 +235,13 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
             </button>
           </p>
 
-          {/* Firebase Badge */}
+          {/* Supabase Badge */}
           <div className="mt-6 flex items-center justify-center gap-2 text-[10px] text-slate-500">
-            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M3.89 15.673L6.255.461A.542.542 0 0 1 7.27.289L9.813 5.06 3.89 15.673zm16.795 3.691L18.433 5.365a.543.543 0 0 0-.918-.295l-14.2 14.294 7.857 4.428a1.62 1.62 0 0 0 1.587 0l7.926-4.428zM14.3 7.148l-1.82-3.482a.542.542 0 0 0-.96 0L3.53 17.984 14.3 7.148z" />
+            <svg className="w-4 h-4" viewBox="0 0 109 113" fill="currentColor">
+              <path d="M63.7076 110.284C60.8481 113.885 55.0502 111.912 54.9813 107.314L53.9738 40.0627L99.1935 40.0627C107.384 40.0627 111.952 49.5228 106.859 55.9374L63.7076 110.284Z" />
+              <path d="M45.317 2.07103C48.1765 -1.53037 53.9745 0.442937 54.0434 5.041L54.4849 72.2922H9.83113C1.64038 72.2922 -2.92775 62.8321 2.1655 56.4175L45.317 2.07103Z" />
             </svg>
-            <span>Powered by Firebase</span>
+            <span>Powered by Supabase</span>
           </div>
         </div>
       </div>

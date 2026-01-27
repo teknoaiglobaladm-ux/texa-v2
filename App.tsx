@@ -13,7 +13,7 @@ import ToolIframePage from './components/ToolIframePage';
 import Footer from './components/Footer';
 import ErrorBoundary from './components/ErrorBoundary';
 import PaymentPage from './pages/PaymentPage';
-import { onAuthChange, logOut, TexaUser } from './services/firebase';
+import { onAuthChange, signOut as logOut, TexaUser } from './services/supabaseAuthService';
 import { PopupProvider, usePopup } from './services/popupContext';
 import { ThemeProvider } from './services/ThemeContext';
 import Dock, { DockItemData } from './components/Dock';

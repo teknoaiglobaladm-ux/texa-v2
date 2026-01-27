@@ -14,7 +14,7 @@ import {
     deleteCategory,
     Category,
     CatalogItem
-} from '../services/catalogService';
+} from '../services/supabaseCatalogService';
 import { getIframeAllowedHostPatterns, isUrlIframeAllowed } from '../utils/iframePolicy';
 
 interface CatalogManagerProps {

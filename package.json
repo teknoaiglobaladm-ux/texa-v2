@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@google/genai": "^1.35.0",
+    "@supabase/supabase-js": "^2.93.1",
     "@types/crypto-js": "^4.2.2",
     "crypto-js": "^4.2.0",
     "firebase": "^12.7.0",

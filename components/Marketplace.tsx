@@ -4,7 +4,7 @@ import { AITool } from '../types';
 import { TexaUser } from '../services/firebase';
 import ToolCard from './ToolCard';
 import CompactToolCard from './CompactToolCard';
-import { subscribeToCatalog, CatalogItem } from '../services/catalogService';
+import { subscribeToCatalog, CatalogItem } from '../services/supabaseCatalogService';
 import {
   DashboardContentSettings,
   DEFAULT_DASHBOARD_CONTENT,

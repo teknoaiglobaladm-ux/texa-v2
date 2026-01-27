@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Navigate, useParams } from 'react-router-dom';
 import { TexaUser } from '../services/firebase';
-import { getCatalogItem, CatalogItem } from '../services/catalogService';
+import { getCatalogItem, CatalogItem } from '../services/supabaseCatalogService';
 import { isUrlIframeAllowed } from '../utils/iframePolicy';
 
 const hasActiveSubscription = (user: TexaUser | null) => {

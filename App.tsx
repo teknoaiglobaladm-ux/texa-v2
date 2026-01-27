@@ -16,9 +16,11 @@ import { onAuthChange, logOut, TexaUser } from './services/firebase';
 import { PopupProvider, usePopup } from './services/popupContext';
 import { ThemeProvider } from './services/ThemeContext';
 import Dock, { DockItemData } from './components/Dock';
-import { subscribeToDockItems, DockItem } from './services/dockService';
+import { subscribeToDockItems, DockItem } from './services/supabaseDockService';
 import toketHtml from './tambahan/toket.txt?raw';
-import { applyThemeSettings, DEFAULT_THEME_SETTINGS, subscribeToThemeSettings, ThemeSettings } from './services/themeService';
+import { applyTheme as applyThemeSettings, getDefaultThemeSettings, subscribeToThemeSettings, ThemeSettings } from './services/supabaseThemeService';
+
+const DEFAULT_THEME_SETTINGS = getDefaultThemeSettings();
 
 // Inner component that has access to useLocation
 const AppContent: React.FC<{
@@ -277,51 +279,78 @@ const App: React.FC = () => {
   const [user, setUser] = useState<TexaUser | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // Listen to Firebase Auth state changes
+  // Listen to Firebase Auth state changes with error handling
   useEffect(() => {
-    const unsubscribe = onAuthChange(async (texaUser) => {
-      setUser(texaUser);
-      setLoading(false);
+    let unsubscribe: (() => void) | undefined;
 
-      if (texaUser) {
-        // Sync with extension
-        const { auth } = await import('./services/firebase');
-        const idToken = auth.currentUser ? await auth.currentUser.getIdToken() : null;
+    const initAuth = async () => {
+      try {
+        unsubscribe = onAuthChange(async (texaUser) => {
+          try {
+            setUser(texaUser);
+            setLoading(false);
 
-        // Save to localStorage for extension to read directly
-        if (idToken) {
-          window.localStorage.setItem('texa_id_token', idToken);
-          window.localStorage.setItem('texa_user_email', texaUser.email || '');
-          window.localStorage.setItem('texa_user_role', texaUser.role || '');
-          window.localStorage.setItem('texa_user_name', texaUser.name || '');
-          window.localStorage.setItem('texa_subscription_end', texaUser.subscriptionEnd || '');
-          // Also save complete user object for Footer
-          window.localStorage.setItem('texa_current_user', JSON.stringify(texaUser));
-        }
+            if (texaUser) {
+              // Sync with extension
+              const { auth } = await import('./services/firebase');
+              const idToken = auth.currentUser ? await auth.currentUser.getIdToken() : null;
 
-        // Send complete user profile to extension via postMessage
-        window.postMessage({
-          source: 'TEXA_DASHBOARD',
-          type: 'TEXA_LOGIN_SYNC',
-          origin: window.location.origin,
-          idToken: idToken,
-          user: {
-            id: texaUser.id,
-            email: texaUser.email,
-            name: texaUser.name,
-            role: texaUser.role,
-            subscriptionEnd: texaUser.subscriptionEnd,
-            isActive: texaUser.isActive,
-            photoURL: texaUser.photoURL,
-            createdAt: texaUser.createdAt,
-            lastLogin: texaUser.lastLogin
+              // Save to localStorage for extension to read directly
+              if (idToken) {
+                window.localStorage.setItem('texa_id_token', idToken);
+                window.localStorage.setItem('texa_user_email', texaUser.email || '');
+                window.localStorage.setItem('texa_user_role', texaUser.role || '');
+                window.localStorage.setItem('texa_user_name', texaUser.name || '');
+                window.localStorage.setItem('texa_subscription_end', texaUser.subscriptionEnd || '');
+                window.localStorage.setItem('texa_current_user', JSON.stringify(texaUser));
+              }
+
+              // Send complete user profile to extension via postMessage
+              window.postMessage({
+                source: 'TEXA_DASHBOARD',
+                type: 'TEXA_LOGIN_SYNC',
+                origin: window.location.origin,
+                idToken: idToken,
+                user: {
+                  id: texaUser.id,
+                  email: texaUser.email,
+                  name: texaUser.name,
+                  role: texaUser.role,
+                  subscriptionEnd: texaUser.subscriptionEnd,
+                  isActive: texaUser.isActive,
+                  photoURL: texaUser.photoURL,
+                  createdAt: texaUser.createdAt,
+                  lastLogin: texaUser.lastLogin
+                }
+              }, window.location.origin);
+            }
+          } catch (error) {
+            console.error('Auth sync error (continuing without auth):', error);
+            setLoading(false);
           }
-        }, window.location.origin);
+        });
+      } catch (error) {
+        console.error('Firebase Auth init error (continuing without auth):', error);
+        setUser(null);
+        setLoading(false);
       }
-    });
+    };
+
+    // Set timeout to ensure app loads even if Firebase fails
+    const timeoutId = setTimeout(() => {
+      if (loading) {
+        console.warn('Firebase taking too long, loading app without auth');
+        setLoading(false);
+      }
+    }, 5000);
+
+    initAuth();
 
     // Cleanup subscription
-    return () => unsubscribe();
+    return () => {
+      clearTimeout(timeoutId);
+      if (unsubscribe) unsubscribe();
+    };
   }, []);
 
   const handleLogin = (userData: TexaUser) => {

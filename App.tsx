@@ -11,6 +11,7 @@ import SplashCursor from './components/SplashCursor';
 import ColorBends from './components/ColorBends';
 import ToolIframePage from './components/ToolIframePage';
 import Footer from './components/Footer';
+import ErrorBoundary from './components/ErrorBoundary';
 import PaymentPage from './pages/PaymentPage';
 import { onAuthChange, logOut, TexaUser } from './services/firebase';
 import { PopupProvider, usePopup } from './services/popupContext';
@@ -401,11 +402,13 @@ const App: React.FC = () => {
 
   return (
     <ThemeProvider>
-      <Router>
-        <PopupProvider>
-          <AppContent user={user} onLogin={handleLogin} onLogout={handleLogout} />
-        </PopupProvider>
-      </Router>
+      <ErrorBoundary>
+        <Router>
+          <PopupProvider>
+            <AppContent user={user} onLogin={handleLogin} onLogout={handleLogout} />
+          </PopupProvider>
+        </Router>
+      </ErrorBoundary>
     </ThemeProvider>
   );
 };

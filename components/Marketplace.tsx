@@ -129,24 +129,24 @@ const Marketplace: React.FC<MarketplaceProps> = ({ user }) => {
         <div className="max-w-xl">
           <h2
             className="text-xl md:text-3xl font-black mb-1 md:mb-2 tracking-tight text-theme-primary flex items-center gap-2"
-            style={content.catalogTitleColor ? { color: content.catalogTitleColor } : undefined}
+            style={content?.catalogTitleColor ? { color: content.catalogTitleColor } : undefined}
           >
-            {content.catalogTitle}
+            {content?.catalogTitle || 'Katalog AI Premium'}
             <span
               className="px-2 py-0.5 bg-indigo-500/20 text-indigo-400 text-[10px] font-bold rounded-full"
               style={{
-                ...(content.catalogBadgeBgColor ? { backgroundColor: content.catalogBadgeBgColor } : {}),
-                ...(content.catalogBadgeTextColor ? { color: content.catalogBadgeTextColor } : {})
+                ...(content?.catalogBadgeBgColor ? { backgroundColor: content.catalogBadgeBgColor } : {}),
+                ...(content?.catalogBadgeTextColor ? { color: content.catalogBadgeTextColor } : {})
               }}
             >
-              {content.catalogBadgeText.replace('{count}', String(filteredTools.length))}
+              {(content?.catalogBadgeText || '{count} Tools').replace('{count}', String(filteredTools.length))}
             </span>
           </h2>
           <p
             className="text-xs md:text-base text-theme-secondary font-medium"
-            style={content.catalogSubtitleColor ? { color: content.catalogSubtitleColor } : undefined}
+            style={content?.catalogSubtitleColor ? { color: content.catalogSubtitleColor } : undefined}
           >
-            {content.catalogSubtitle}
+            {content?.catalogSubtitle || 'Akses berbagai AI tools premium dengan satu langganan.'}
           </p>
         </div>
 
@@ -226,14 +226,14 @@ const Marketplace: React.FC<MarketplaceProps> = ({ user }) => {
       {/* Empty State */}
       {filteredTools.length === 0 && !loading && (
         <div className="text-center py-16">
-          <div className="text-6xl mb-4">{content.emptyStateEmoji}</div>
-          <h3 className="text-xl font-bold text-theme-primary mb-2">{content.emptyStateTitle}</h3>
-          <p className="text-theme-secondary text-sm">{content.emptyStateSubtitle}</p>
+          <div className="text-6xl mb-4">{content?.emptyStateEmoji || '🔍'}</div>
+          <h3 className="text-xl font-bold text-theme-primary mb-2">{content?.emptyStateTitle || 'Tidak ada tools'}</h3>
+          <p className="text-theme-secondary text-sm">{content?.emptyStateSubtitle || 'Coba filter lain'}</p>
           <button
             onClick={() => setFilter('Semua')}
             className="mt-4 px-6 py-2 bg-indigo-500 hover:bg-indigo-600 text-white rounded-xl font-bold text-sm transition-all"
           >
-            {content.emptyStateButtonText}
+            {content?.emptyStateButtonText || 'Lihat Semua'}
           </button>
         </div>
       )}

@@ -398,28 +398,3 @@ export const getUserById = async (userId: string): Promise<TexaUser | null> => {
 
 // Export for compatibility
 export { supabase };
-
-// Get current session
-export const getSession = async () => {
-    const { data: { session } } = await supabase.auth.getSession();
-    return session;
-};
-
-// Get current user (async)
-export const getCurrentUser = async (): Promise<TexaUser | null> => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return null;
-    return await mapSupabaseUser(user);
-};
-
-// Auth compatibility object (similar to Firebase auth)
-export const auth = {
-    get currentUser() {
-        // Note: This is a synchronous getter but returns session user synchronously cached
-        // For accurate async check, use getCurrentUser() or getSession()
-        return null; // Use getCurrentUser() for async operations
-    },
-    getSession,
-    getCurrentUser
-};
-

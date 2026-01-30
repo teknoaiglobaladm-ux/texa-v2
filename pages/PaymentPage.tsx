@@ -90,10 +90,18 @@ const PaymentPage: React.FC = () => {
                     clearInterval(pollInterval);
                     setPaymentStatus('paid');
 
-                    // Redirect to dashboard after showing success for 2 seconds
+                    // Clear pending payment from localStorage
+                    localStorage.removeItem('pendingPayment');
+
+                    // Redirect to home with tool auto-open after showing success
                     setTimeout(() => {
-                        console.log('[Payment] Redirecting to dashboard');
-                        navigate('/');
+                        console.log('[Payment] Redirecting to home with tool:', itemId);
+                        // Navigate to home with openTool parameter to auto-open the purchased tool
+                        if (type === 'individual' && itemId) {
+                            navigate(`/?openTool=${itemId}`);
+                        } else {
+                            navigate('/');
+                        }
                     }, 2500);
                 }
             } catch (e) {
@@ -157,8 +165,20 @@ const PaymentPage: React.FC = () => {
                     createdAt: new Date().toISOString()
                 }));
 
-                // Redirect directly to Tokopay payment page
-                window.location.href = result.data.payUrl;
+                // Set payment result to show QR/VA in page with auto polling
+                setPaymentResult({
+                    refId: result.data.refId,
+                    payUrl: result.data.payUrl,
+                    trxId: result.data.trxId,
+                    totalBayar: result.data.totalBayar,
+                    qrLink: result.data.qrLink,
+                    qrString: result.data.qrString,
+                    nomorVa: result.data.nomorVa,
+                    checkoutUrl: result.data.checkoutUrl
+                });
+
+                // Open Tokopay payment page in new tab for convenience
+                window.open(result.data.payUrl, '_blank');
             } else {
                 setError(result.error || 'Gagal membuat pembayaran');
             }

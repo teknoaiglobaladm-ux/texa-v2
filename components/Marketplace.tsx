@@ -1,5 +1,6 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { AITool } from '../types';
 import { TexaUser } from '../services/supabaseAuthService';
 import ToolCard from './ToolCard';
@@ -11,6 +12,7 @@ import {
   subscribeToDashboardContent
 } from '../services/supabaseDashboardService';
 import { getUserToolAccesses, UserToolAccess } from '../services/userToolsService';
+import { checkExtensionInstalled } from '../services/extensionService';
 
 
 // Fallback mock tools (used when Firestore is empty)
@@ -84,12 +86,65 @@ interface MarketplaceProps {
 type ViewMode = 'grid' | 'compact';
 
 const Marketplace: React.FC<MarketplaceProps> = ({ user }) => {
+  const location = useLocation();
+  const navigate = useNavigate();
   const [filter, setFilter] = useState('Semua');
   const [tools, setTools] = useState<AITool[]>(MOCK_TOOLS);
   const [loading, setLoading] = useState(true);
   const [viewMode, setViewMode] = useState<ViewMode>('compact');
   const [content, setContent] = useState<DashboardContentSettings>(DEFAULT_DASHBOARD_CONTENT);
   const [userToolAccesses, setUserToolAccesses] = useState<UserToolAccess[]>([]);
+  const [autoOpenToolId, setAutoOpenToolId] = useState<string | null>(null);
+  const autoOpenProcessed = useRef(false);
+
+  // Detect openTool parameter from URL (e.g., after successful payment)
+  useEffect(() => {
+    const searchParams = new URLSearchParams(location.search);
+    const openToolId = searchParams.get('openTool');
+
+    if (openToolId && !autoOpenProcessed.current) {
+      console.log('[Marketplace] Auto-open tool detected:', openToolId);
+      setAutoOpenToolId(openToolId);
+
+      // Clear the URL parameter to prevent re-opening on refresh
+      const newUrl = location.pathname;
+      window.history.replaceState({}, '', `#${newUrl}`);
+    }
+  }, [location.search, location.pathname]);
+
+  // Auto-open tool when detected and tools are loaded
+  useEffect(() => {
+    if (!autoOpenToolId || loading || autoOpenProcessed.current) return;
+
+    const tool = tools.find(t => t.id === autoOpenToolId);
+    if (!tool) {
+      console.log('[Marketplace] Tool not found:', autoOpenToolId);
+      return;
+    }
+
+    // Mark as processed to prevent multiple opens
+    autoOpenProcessed.current = true;
+    console.log('[Marketplace] Auto-opening tool:', tool.name);
+
+    // Open the tool via extension or new tab
+    const openTool = async () => {
+      const isExtensionInstalled = await checkExtensionInstalled();
+
+      if (isExtensionInstalled && window.TEXAExtension?.openTool) {
+        // Open via extension
+        window.TEXAExtension.openTool(tool.id, tool.targetUrl, tool.apiUrl);
+      } else if (tool.targetUrl) {
+        // Fallback: open in new tab
+        window.open(tool.targetUrl, '_blank');
+      }
+
+      // Clear autoOpenToolId
+      setAutoOpenToolId(null);
+    };
+
+    // Small delay to ensure UI is ready
+    setTimeout(openTool, 500);
+  }, [autoOpenToolId, tools, loading]);
 
   // Subscribe to dashboard content settings
   useEffect(() => {
@@ -113,9 +168,30 @@ const Marketplace: React.FC<MarketplaceProps> = ({ user }) => {
 
     fetchAccesses();
 
-    // Refresh every 30 seconds
-    const intervalId = setInterval(fetchAccesses, 30000);
-    return () => clearInterval(intervalId);
+    // Refresh every 5 seconds for faster payment detection
+    const intervalId = setInterval(fetchAccesses, 5000);
+
+    // Also refresh when window regains focus (user comes back from payment page)
+    const handleFocus = () => {
+      console.log('[Marketplace] Window focused - refreshing tool accesses');
+      fetchAccesses();
+    };
+    window.addEventListener('focus', handleFocus);
+
+    // Listen for storage event (when payment completes)
+    const handleStorage = (e: StorageEvent) => {
+      if (e.key === 'pendingPayment' && e.newValue === null) {
+        console.log('[Marketplace] Payment completed - refreshing tool accesses');
+        fetchAccesses();
+      }
+    };
+    window.addEventListener('storage', handleStorage);
+
+    return () => {
+      clearInterval(intervalId);
+      window.removeEventListener('focus', handleFocus);
+      window.removeEventListener('storage', handleStorage);
+    };
   }, [user?.id]);
 
   // Subscribe to catalog from Firestore

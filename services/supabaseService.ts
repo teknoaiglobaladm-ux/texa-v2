@@ -76,7 +76,7 @@ export const getUser = async (userId: string): Promise<SupabaseUser | null> => {
         .select('*')
         .eq('id', userId)
         .single();
-    
+
     if (error) {
         console.error('Error getting user:', error);
         return null;
@@ -90,7 +90,7 @@ export const getUserByEmail = async (email: string): Promise<SupabaseUser | null
         .select('*')
         .eq('email', email)
         .single();
-    
+
     if (error) {
         console.error('Error getting user by email:', error);
         return null;
@@ -107,7 +107,7 @@ export const createOrUpdateUser = async (user: Partial<SupabaseUser> & { id: str
         }, { onConflict: 'id' })
         .select()
         .single();
-    
+
     if (error) {
         console.error('Error creating/updating user:', error);
         return null;
@@ -118,12 +118,12 @@ export const createOrUpdateUser = async (user: Partial<SupabaseUser> & { id: str
 export const updateUserSubscription = async (userId: string, subscriptionEnd: string): Promise<boolean> => {
     const { error } = await supabase
         .from('users')
-        .update({ 
+        .update({
             subscription_end: subscriptionEnd,
             updated_at: new Date().toISOString()
         })
         .eq('id', userId);
-    
+
     if (error) {
         console.error('Error updating subscription:', error);
         return false;
@@ -141,7 +141,7 @@ export const getAllTools = async (): Promise<SupabaseTool[]> => {
         .select('*')
         .eq('is_active', true)
         .order('sort_order', { ascending: true });
-    
+
     if (error) {
         console.error('Error getting tools:', error);
         return [];
@@ -155,7 +155,7 @@ export const getTool = async (toolId: string): Promise<SupabaseTool | null> => {
         .select('*')
         .eq('id', toolId)
         .single();
-    
+
     if (error) {
         console.error('Error getting tool:', error);
         return null;
@@ -173,7 +173,7 @@ export const createTool = async (tool: Omit<SupabaseTool, 'id' | 'created_at' | 
         })
         .select()
         .single();
-    
+
     if (error) {
         console.error('Error creating tool:', error);
         return null;
@@ -189,7 +189,7 @@ export const updateTool = async (toolId: string, updates: Partial<SupabaseTool>)
             updated_at: new Date().toISOString()
         })
         .eq('id', toolId);
-    
+
     if (error) {
         console.error('Error updating tool:', error);
         return false;
@@ -202,7 +202,7 @@ export const deleteTool = async (toolId: string): Promise<boolean> => {
         .from('tools')
         .delete()
         .eq('id', toolId);
-    
+
     if (error) {
         console.error('Error deleting tool:', error);
         return false;
@@ -224,7 +224,7 @@ export const createOrder = async (order: Omit<SupabaseOrder, 'id' | 'created_at'
         })
         .select()
         .single();
-    
+
     if (error) {
         console.error('Error creating order:', error);
         return null;
@@ -238,7 +238,7 @@ export const getOrderByRefId = async (refId: string): Promise<SupabaseOrder | nu
         .select('*')
         .eq('ref_id', refId)
         .single();
-    
+
     if (error) {
         console.error('Error getting order:', error);
         return null;
@@ -247,7 +247,7 @@ export const getOrderByRefId = async (refId: string): Promise<SupabaseOrder | nu
 };
 
 export const updateOrderStatus = async (
-    refId: string, 
+    refId: string,
     status: 'paid' | 'expired' | 'failed',
     additionalData?: Partial<SupabaseOrder>
 ): Promise<boolean> => {
@@ -255,20 +255,20 @@ export const updateOrderStatus = async (
         status,
         updated_at: new Date().toISOString()
     };
-    
+
     if (status === 'paid') {
         updateData.paid_at = new Date().toISOString();
     }
-    
+
     if (additionalData) {
         Object.assign(updateData, additionalData);
     }
-    
+
     const { error } = await supabase
         .from('orders')
         .update(updateData)
         .eq('ref_id', refId);
-    
+
     if (error) {
         console.error('Error updating order status:', error);
         return false;
@@ -282,7 +282,7 @@ export const getUserOrders = async (userId: string): Promise<SupabaseOrder[]> =>
         .select('*')
         .eq('user_id', userId)
         .order('created_at', { ascending: false });
-    
+
     if (error) {
         console.error('Error getting user orders:', error);
         return [];
@@ -300,7 +300,7 @@ export const getSetting = async (key: string): Promise<any> => {
         .select('value')
         .eq('key', key)
         .single();
-    
+
     if (error) {
         console.error('Error getting setting:', error);
         return null;
@@ -316,7 +316,7 @@ export const setSetting = async (key: string, value: any): Promise<boolean> => {
             value,
             updated_at: new Date().toISOString()
         }, { onConflict: 'key' });
-    
+
     if (error) {
         console.error('Error setting value:', error);
         return false;
@@ -328,12 +328,12 @@ export const getAllSettings = async (): Promise<Record<string, any>> => {
     const { data, error } = await supabase
         .from('settings')
         .select('*');
-    
+
     if (error) {
         console.error('Error getting all settings:', error);
         return {};
     }
-    
+
     const settings: Record<string, any> = {};
     (data || []).forEach(item => {
         settings[item.key] = item.value;
@@ -348,18 +348,18 @@ export const getAllSettings = async (): Promise<Record<string, any>> => {
 export const subscribeToTools = (callback: (tools: SupabaseTool[]) => void) => {
     // Initial fetch
     getAllTools().then(callback);
-    
+
     // Subscribe to changes
     const subscription = supabase
         .channel('tools_changes')
-        .on('postgres_changes', 
+        .on('postgres_changes',
             { event: '*', schema: 'public', table: 'tools' },
             () => {
                 getAllTools().then(callback);
             }
         )
         .subscribe();
-    
+
     return () => {
         subscription.unsubscribe();
     };
@@ -368,7 +368,7 @@ export const subscribeToTools = (callback: (tools: SupabaseTool[]) => void) => {
 export const subscribeToUserOrders = (userId: string, callback: (orders: SupabaseOrder[]) => void) => {
     // Initial fetch
     getUserOrders(userId).then(callback);
-    
+
     // Subscribe to changes
     const subscription = supabase
         .channel(`orders_${userId}`)
@@ -379,7 +379,7 @@ export const subscribeToUserOrders = (userId: string, callback: (orders: Supabas
             }
         )
         .subscribe();
-    
+
     return () => {
         subscription.unsubscribe();
     };
@@ -389,19 +389,19 @@ export const subscribeToUserOrders = (userId: string, callback: (orders: Supabas
 // Auth Integration Helper
 // ============================================
 
-export const syncFirebaseUserToSupabase = async (firebaseUser: {
+export const syncUserToDatabase = async (authUser: {
     uid: string;
     email: string | null;
     displayName: string | null;
     photoURL: string | null;
 }): Promise<SupabaseUser | null> => {
-    if (!firebaseUser.email) return null;
-    
+    if (!authUser.email) return null;
+
     return createOrUpdateUser({
-        id: firebaseUser.uid,
-        email: firebaseUser.email,
-        name: firebaseUser.displayName || undefined,
-        photo_url: firebaseUser.photoURL || undefined,
+        id: authUser.uid,
+        email: authUser.email,
+        name: authUser.displayName || undefined,
+        photo_url: authUser.photoURL || undefined,
         role: 'USER',
         is_active: true,
         last_login: new Date().toISOString()

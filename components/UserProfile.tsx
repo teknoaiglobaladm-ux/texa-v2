@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { TexaUser } from '../services/supabaseAuthService';
 
 interface UserProfileProps {
@@ -9,6 +9,19 @@ interface UserProfileProps {
 }
 
 const UserProfile: React.FC<UserProfileProps> = ({ user, onLogout }) => {
+  const navigate = useNavigate();
+
+  const handleUpgrade = () => {
+    // Navigate to marketplace where subscription packages are shown
+    navigate('/');
+  };
+
+  const handleLogout = () => {
+    onLogout();
+    // Navigate to home after logout
+    navigate('/');
+  };
+
   const formatDate = (dateString: string | null) => {
     if (!dateString) return 'Tidak ada';
     return new Date(dateString).toLocaleDateString('id-ID', {
@@ -85,7 +98,10 @@ const UserProfile: React.FC<UserProfileProps> = ({ user, onLogout }) => {
           ) : (
             <div className="text-center py-12">
               <p className="text-slate-400 mb-8 font-medium italic">Kamu belum memiliki paket aktif.</p>
-              <button className="px-10 py-4 premium-gradient rounded-2xl font-black text-lg shadow-xl hover:scale-105 transition-transform">
+              <button
+                onClick={handleUpgrade}
+                className="px-10 py-4 premium-gradient rounded-2xl font-black text-lg shadow-xl hover:scale-105 transition-transform"
+              >
                 Upgrade ke Premium
               </button>
             </div>
@@ -114,13 +130,13 @@ const UserProfile: React.FC<UserProfileProps> = ({ user, onLogout }) => {
               <span className="text-2xl">✅</span>
               <span className="text-sm font-black text-white">Akun Terverifikasi</span>
             </div>
-            <span className="text-[10px] font-black text-emerald-400 bg-emerald-400/10 px-2 py-1 rounded">Firebase Auth</span>
+            <span className="text-[10px] font-black text-emerald-400 bg-emerald-400/10 px-2 py-1 rounded">Supabase Auth</span>
           </div>
 
           <div className="mt-6">
             <button
               type="button"
-              onClick={onLogout}
+              onClick={handleLogout}
               className="w-full py-4 rounded-2xl border border-red-500/20 text-red-400 text-sm font-black hover:bg-red-500/10 transition-all uppercase tracking-widest"
             >
               Logout

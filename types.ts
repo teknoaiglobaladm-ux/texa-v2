@@ -1,8 +1,8 @@
 
-// Re-export TexaUser from Supabase auth service (Firebase removed)
+// Re-export TexaUser from Supabase auth service
 export type { TexaUser as User } from './services/supabaseAuthService';
 
-// UserRole type definition (was previously from firebase.ts)
+// UserRole type definition
 export type UserRole = 'ADMIN' | 'MEMBER';
 
 export interface AITool {

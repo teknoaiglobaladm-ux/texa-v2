@@ -424,7 +424,7 @@ class TEXAToolsManager {
         const statusEl = document.getElementById('tokenStatus');
 
         try {
-            statusEl.textContent = 'Memuat token dari Firebase...';
+            statusEl.textContent = 'Memuat token dari Supabase...';
             statusEl.className = 'token-status loading';
 
             const response = await chrome.runtime.sendMessage({ type: 'TEXA_GET_TOKEN' });

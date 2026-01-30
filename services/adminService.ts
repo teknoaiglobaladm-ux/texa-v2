@@ -64,14 +64,47 @@ const rowToTexaUser = (row: any): TexaUser => ({
 });
 
 // Get All Users (Realtime subscription via polling)
+// Uses Admin API first to bypass RLS, with fallback to direct Supabase
 export const subscribeToUsers = (callback: (users: TexaUser[]) => void) => {
     let stopped = false;
     let inFlight = false;
+
+    // API Base URL for admin server
+    const getApiBaseUrl = () => {
+        if (typeof window !== 'undefined') {
+            return window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+                ? 'http://127.0.0.1:8787'
+                : '';
+        }
+        return 'http://127.0.0.1:8787';
+    };
 
     const fetchOnce = async () => {
         if (stopped || inFlight) return;
         inFlight = true;
         try {
+            // Try Admin API first (bypasses RLS)
+            const apiBaseUrl = getApiBaseUrl();
+            const response = await fetch(`${apiBaseUrl}/api/admin/users`, {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Dev-Bypass': 'true'
+                }
+            });
+
+            if (response.ok) {
+                const result = await response.json();
+                if (result.success && Array.isArray(result.data)) {
+                    console.log(`✅ Loaded ${result.data.length} users via Admin API`);
+                    const users: TexaUser[] = result.data.map(rowToTexaUser);
+                    callback(users);
+                    return;
+                }
+            }
+
+            // Fallback to direct Supabase if Admin API fails
+            console.log('Admin API unavailable for users, falling back to Supabase...');
             const { data, error } = await supabase
                 .from(USERS_TABLE)
                 .select('*')

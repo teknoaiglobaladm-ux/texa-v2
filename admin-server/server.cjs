@@ -814,18 +814,48 @@ const server = http.createServer(async (req, res) => {
               const accessEnd = new Date();
               accessEnd.setDate(accessEnd.getDate() + (duration || 7));
 
-              await supabaseFetch('/rest/v1/user_tools', {
+              console.log('🔧 [check-status] Attempting to insert user_tool:', {
+                user_id: order.user_id,
+                tool_id: order.item_id,
+                access_end: accessEnd.toISOString()
+              });
+
+              // Try upsert first
+              const toolInsertResp = await supabaseFetch('/rest/v1/user_tools', {
                 method: 'POST',
-                headers: { 'Prefer': 'resolution=merge-duplicates' },
+                headers: { 'Prefer': 'return=representation' },
                 body: JSON.stringify({
                   user_id: order.user_id,
                   tool_id: order.item_id,
                   access_end: accessEnd.toISOString(),
-                  order_ref_id: refId,
-                  created_at: nowIso
+                  order_ref_id: refId
                 })
               });
-              console.log('✅ [check-status] Individual tool activated:', order.item_id, 'for', order.user_id);
+
+              if (toolInsertResp.ok) {
+                const inserted = await toolInsertResp.json();
+                console.log('✅ [check-status] Individual tool activated:', order.item_id, 'for', order.user_id, inserted);
+              } else {
+                const errText = await toolInsertResp.text();
+                console.error('❌ [check-status] Failed to insert user_tools:', errText);
+
+                // If it's a duplicate key error, try update instead
+                if (errText.includes('duplicate') || errText.includes('unique')) {
+                  console.log('🔄 [check-status] Trying PATCH instead...');
+                  const patchResp = await supabaseFetch(`/rest/v1/user_tools?user_id=eq.${order.user_id}&tool_id=eq.${order.item_id}`, {
+                    method: 'PATCH',
+                    body: JSON.stringify({
+                      access_end: accessEnd.toISOString(),
+                      order_ref_id: refId
+                    })
+                  });
+                  if (patchResp.ok) {
+                    console.log('✅ [check-status] User tool access updated via PATCH');
+                  } else {
+                    console.error('❌ [check-status] PATCH also failed:', await patchResp.text());
+                  }
+                }
+              }
             }
           }
         }
@@ -902,9 +932,28 @@ ALTER TABLE tools ADD COLUMN IF NOT EXISTS price_30_days INTEGER DEFAULT 0;`,
       }
     }
 
-    // ==================== Admin Tool CRUD Routes ====================
+    // ==================== Admin User CRUD Routes ====================
 
-    // Get all tools
+    // Get all users
+    if (req.method === 'GET' && url.pathname === '/api/admin/users') {
+      const guard = await requireAdminOrDev(req);
+      if (!guard.ok) return json(res, guard.status, { success: false, message: guard.message });
+
+      try {
+        const response = await supabaseFetch('/rest/v1/users?select=*&order=created_at.desc');
+        if (response.ok) {
+          const users = await response.json();
+          return json(res, 200, { success: true, data: users });
+        } else {
+          return json(res, 500, { success: false, message: 'Gagal mengambil data users' });
+        }
+      } catch (e) {
+        console.error('Get users error:', e);
+        return json(res, 500, { success: false, message: 'Server error' });
+      }
+    }
+
+    // ==================== Admin Tool CRUD Routes ====================
     if (req.method === 'GET' && url.pathname === '/api/admin/tools') {
       const guard = await requireAdminOrDev(req);
       if (!guard.ok) return json(res, guard.status, { success: false, message: guard.message });
@@ -1176,6 +1225,177 @@ ALTER TABLE tools ADD COLUMN IF NOT EXISTS price_30_days INTEGER DEFAULT 0;`,
         }
       } catch (e) {
         console.error('Seed catalog error:', e);
+        return json(res, 500, { success: false, message: 'Server error' });
+      }
+    }
+
+    // ==================== Settings CRUD Routes ====================
+
+    // Get a setting by key
+    if (req.method === 'GET' && url.pathname === '/api/admin/settings') {
+      const guard = await requireAdminOrDev(req);
+      if (!guard.ok) return json(res, guard.status, { success: false, message: guard.message });
+
+      const key = url.searchParams.get('key');
+      if (!key) {
+        return json(res, 400, { success: false, message: 'Key parameter required' });
+      }
+
+      try {
+        const response = await supabaseFetch(`/rest/v1/settings?key=eq.${encodeURIComponent(key)}&select=*`);
+        if (response.ok) {
+          const settings = await response.json();
+          if (settings.length > 0) {
+            return json(res, 200, { success: true, data: settings[0] });
+          } else {
+            return json(res, 200, { success: true, data: null });
+          }
+        } else {
+          return json(res, 500, { success: false, message: 'Gagal mengambil settings' });
+        }
+      } catch (e) {
+        console.error('Get settings error:', e);
+        return json(res, 500, { success: false, message: 'Server error' });
+      }
+    }
+
+    // Save/Update a setting
+    if (req.method === 'PUT' && url.pathname === '/api/admin/settings') {
+      const guard = await requireAdminOrDev(req);
+      if (!guard.ok) return json(res, guard.status, { success: false, message: guard.message });
+
+      const body = await readBody(req);
+      const { key, value } = body;
+
+      if (!key) {
+        return json(res, 400, { success: false, message: 'Key is required' });
+      }
+
+      try {
+        const now = new Date().toISOString();
+
+        // First check if setting exists
+        const existsResp = await supabaseFetch(`/rest/v1/settings?key=eq.${encodeURIComponent(key)}&select=key`);
+        const existsData = existsResp.ok ? await existsResp.json() : [];
+        const exists = existsData.length > 0;
+
+        let response;
+        if (exists) {
+          // Update existing
+          response = await supabaseFetch(`/rest/v1/settings?key=eq.${encodeURIComponent(key)}`, {
+            method: 'PATCH',
+            body: JSON.stringify({
+              value: value || {},
+              updated_at: now
+            })
+          });
+        } else {
+          // Insert new
+          response = await supabaseFetch('/rest/v1/settings', {
+            method: 'POST',
+            body: JSON.stringify({
+              key,
+              value: value || {},
+              updated_at: now
+            })
+          });
+        }
+
+        if (response.ok) {
+          console.log('✅ Setting saved:', key);
+          return json(res, 200, { success: true, message: 'Setting saved' });
+        } else {
+          const err = await response.text();
+          console.error('Save setting error:', err);
+          return json(res, 500, { success: false, message: 'Gagal menyimpan setting' });
+        }
+      } catch (e) {
+        console.error('Save setting error:', e);
+        return json(res, 500, { success: false, message: 'Server error' });
+      }
+    }
+
+    // ==================== Footer Settings CRUD Routes ====================
+
+    // Get footer settings
+    if (req.method === 'GET' && url.pathname === '/api/admin/footer-settings') {
+      const guard = await requireAdminOrDev(req);
+      if (!guard.ok) return json(res, guard.status, { success: false, message: guard.message });
+
+      try {
+        const response = await supabaseFetch('/rest/v1/footer_settings?select=*&limit=1');
+        if (response.ok) {
+          const settings = await response.json();
+          if (settings.length > 0) {
+            return json(res, 200, { success: true, data: settings[0] });
+          } else {
+            return json(res, 200, { success: true, data: null });
+          }
+        } else {
+          return json(res, 500, { success: false, message: 'Gagal mengambil footer settings' });
+        }
+      } catch (e) {
+        console.error('Get footer settings error:', e);
+        return json(res, 500, { success: false, message: 'Server error' });
+      }
+    }
+
+    // Save/Update footer settings
+    if (req.method === 'PUT' && url.pathname === '/api/admin/footer-settings') {
+      const guard = await requireAdminOrDev(req);
+      if (!guard.ok) return json(res, guard.status, { success: false, message: guard.message });
+
+      const body = await readBody(req);
+
+      try {
+        const now = new Date().toISOString();
+        const settingsData = {
+          company_name: body.companyName,
+          company_tagline: body.companyTagline,
+          copyright_text: body.copyrightText,
+          whatsapp_url: body.whatsappUrl,
+          email: body.email,
+          phone: body.phone,
+          address_line1: body.addressLine1,
+          address_line2: body.addressLine2,
+          city: body.city,
+          country: body.country,
+          maps_url: body.mapsUrl,
+          maps_embed_url: body.mapsEmbedUrl,
+          social_media: body.socialMedia,
+          updated_at: now
+        };
+
+        // First check if any record exists
+        const existsResp = await supabaseFetch('/rest/v1/footer_settings?select=id&limit=1');
+        const existsData = existsResp.ok ? await existsResp.json() : [];
+        const exists = existsData.length > 0;
+
+        let response;
+        if (exists) {
+          // Update existing
+          response = await supabaseFetch(`/rest/v1/footer_settings?id=eq.${existsData[0].id}`, {
+            method: 'PATCH',
+            body: JSON.stringify(settingsData)
+          });
+        } else {
+          // Insert new
+          response = await supabaseFetch('/rest/v1/footer_settings', {
+            method: 'POST',
+            body: JSON.stringify(settingsData)
+          });
+        }
+
+        if (response.ok) {
+          console.log('✅ Footer settings saved');
+          return json(res, 200, { success: true, message: 'Footer settings saved' });
+        } else {
+          const err = await response.text();
+          console.error('Save footer settings error:', err);
+          return json(res, 500, { success: false, message: 'Gagal menyimpan footer settings' });
+        }
+      } catch (e) {
+        console.error('Save footer settings error:', e);
         return json(res, 500, { success: false, message: 'Server error' });
       }
     }

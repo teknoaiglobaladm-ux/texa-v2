@@ -1,6 +1,5 @@
 // Supabase Catalog Service - Mengelola AI Tools di Supabase
-// Ini adalah pengganti catalogService.ts yang menggunakan Firebase
-// Tetap backward compatible dengan interface yang sama
+// Service untuk CRUD operasi catalog tools
 
 import { supabase, SupabaseTool } from './supabaseService';
 import { AITool } from '../types';
@@ -276,7 +275,11 @@ export const getCatalog = async (): Promise<CatalogItem[]> => {
                     createdAt: tool.created_at || tool.createdAt,
                     updatedAt: tool.updated_at || tool.updatedAt,
                     createdBy: tool.created_by || tool.createdBy,
-                    // Individual pricing fields (preserve actual values from database)
+                    // Multi-tier pricing fields (CRITICAL: these are used by CheckoutPopup)
+                    price7Days: tool.price_7_days ?? tool.price7Days ?? 0,
+                    price14Days: tool.price_14_days ?? tool.price14Days ?? 0,
+                    price30Days: tool.price_30_days ?? tool.price30Days ?? 0,
+                    // Individual pricing fields (legacy, preserve for compatibility)
                     individualPrice: tool.individual_price ?? tool.individualPrice ?? null,
                     individualDuration: tool.individual_duration ?? tool.individualDuration ?? 7,
                     individualDiscount: tool.individual_discount ?? tool.individualDiscount ?? null

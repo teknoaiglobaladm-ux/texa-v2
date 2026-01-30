@@ -1,9 +1,19 @@
-// Supabase Subscription Service - Full Subscription Management
+// Supabase Subscription Service - Full Subscription Management with Admin API
 import { supabase } from './supabaseService';
 
 const SETTINGS_TABLE = 'settings';
 const SUBSCRIPTION_DOC = 'subscription_config';
 const REVENUE_SHARE_DOC = 'revenue_share_config';
+
+// API Base URL for admin server
+const getApiBaseUrl = () => {
+    if (typeof window !== 'undefined') {
+        return window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+            ? 'http://127.0.0.1:8787'
+            : '';
+    }
+    return 'http://127.0.0.1:8787';
+};
 
 // ============ SUBSCRIPTION SETTINGS INTERFACES ============
 
@@ -127,6 +137,24 @@ export const DEFAULT_SETTINGS: SubscriptionSettings = {
 
 export const getSubscriptionSettings = async (): Promise<SubscriptionSettings> => {
     try {
+        // Try Admin API first (bypasses RLS)
+        const apiBaseUrl = getApiBaseUrl();
+        const response = await fetch(`${apiBaseUrl}/api/admin/settings?key=${SUBSCRIPTION_DOC}`, {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-Dev-Bypass': 'true'
+            }
+        });
+
+        if (response.ok) {
+            const result = await response.json();
+            if (result.success && result.data?.value) {
+                return { ...DEFAULT_SETTINGS, ...result.data.value } as SubscriptionSettings;
+            }
+        }
+
+        // Fallback to direct Supabase
         const { data, error } = await supabase
             .from(SETTINGS_TABLE)
             .select('value')
@@ -165,17 +193,42 @@ export const saveSubscriptionSettings = async (
 ): Promise<boolean> => {
     try {
         const current = await getSubscriptionSettings();
-        const merged = { ...current, ...settings };
+        const merged = {
+            ...current,
+            ...settings,
+            updatedAt: new Date().toISOString(),
+            updatedBy: updatedBy || 'admin'
+        };
 
+        // Try Admin API first (bypasses RLS)
+        const apiBaseUrl = getApiBaseUrl();
+        const response = await fetch(`${apiBaseUrl}/api/admin/settings`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-Dev-Bypass': 'true'
+            },
+            body: JSON.stringify({
+                key: SUBSCRIPTION_DOC,
+                value: merged
+            })
+        });
+
+        if (response.ok) {
+            const result = await response.json();
+            if (result.success) {
+                console.log('✅ Subscription settings saved via Admin API');
+                return true;
+            }
+        }
+
+        // Fallback to direct Supabase
+        console.log('Admin API unavailable, falling back to Supabase...');
         const { error } = await supabase
             .from(SETTINGS_TABLE)
             .upsert({
                 key: SUBSCRIPTION_DOC,
-                value: {
-                    ...merged,
-                    updatedAt: new Date().toISOString(),
-                    updatedBy: updatedBy || 'admin'
-                }
+                value: merged
             }, { onConflict: 'key' });
 
         return !error;
@@ -226,6 +279,24 @@ export const DEFAULT_REVENUE_SHARE: RevenueShareSettings = {
 
 export const getRevenueShareSettings = async (): Promise<RevenueShareSettings> => {
     try {
+        // Try Admin API first (bypasses RLS)
+        const apiBaseUrl = getApiBaseUrl();
+        const response = await fetch(`${apiBaseUrl}/api/admin/settings?key=${REVENUE_SHARE_DOC}`, {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-Dev-Bypass': 'true'
+            }
+        });
+
+        if (response.ok) {
+            const result = await response.json();
+            if (result.success && result.data?.value) {
+                return { ...DEFAULT_REVENUE_SHARE, ...result.data.value } as RevenueShareSettings;
+            }
+        }
+
+        // Fallback to direct Supabase
         const { data, error } = await supabase
             .from(SETTINGS_TABLE)
             .select('value')
@@ -261,15 +332,41 @@ export const saveRevenueShareSettings = async (
     updatedBy?: string
 ): Promise<boolean> => {
     try {
+        const merged = {
+            ...settings,
+            updatedAt: new Date().toISOString(),
+            updatedBy: updatedBy || 'admin'
+        };
+
+        // Try Admin API first (bypasses RLS)
+        const apiBaseUrl = getApiBaseUrl();
+        const response = await fetch(`${apiBaseUrl}/api/admin/settings`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-Dev-Bypass': 'true'
+            },
+            body: JSON.stringify({
+                key: REVENUE_SHARE_DOC,
+                value: merged
+            })
+        });
+
+        if (response.ok) {
+            const result = await response.json();
+            if (result.success) {
+                console.log('✅ Revenue share settings saved via Admin API');
+                return true;
+            }
+        }
+
+        // Fallback to direct Supabase
+        console.log('Admin API unavailable, falling back to Supabase...');
         const { error } = await supabase
             .from(SETTINGS_TABLE)
             .upsert({
                 key: REVENUE_SHARE_DOC,
-                value: {
-                    ...settings,
-                    updatedAt: new Date().toISOString(),
-                    updatedBy: updatedBy || 'admin'
-                }
+                value: merged
             }, { onConflict: 'key' });
 
         return !error;

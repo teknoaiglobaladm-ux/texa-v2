@@ -210,13 +210,13 @@ const AdminDashboard: React.FC = () => {
   useEffect(() => {
     let loadingTimeout: ReturnType<typeof setTimeout> | null = null;
 
-    // Timeout after 10 seconds to prevent infinite loading
+    // Timeout after 30 seconds to prevent infinite loading (increased from 10s)
     loadingTimeout = setTimeout(() => {
       if (loading) {
         console.warn('AdminDashboard: User data loading timeout, showing empty state');
         setLoading(false);
       }
-    }, 10000);
+    }, 30000);
 
     const unsubscribe = subscribeToUsers((fetchedUsers) => {
       if (loadingTimeout) clearTimeout(loadingTimeout);
@@ -2030,7 +2030,7 @@ const AdminDashboard: React.FC = () => {
           <div className="glass rounded-2xl p-6 border border-white/10 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
             <div>
               <h3 className="text-xl font-black text-white flex items-center gap-2">🔐 Token Vault - Extension</h3>
-              <p className="text-slate-400 text-sm mt-1">Firebase Token Storage untuk integrasi dengan Chrome Extension.</p>
+              <p className="text-slate-400 text-sm mt-1">Supabase Token Storage untuk integrasi dengan Chrome Extension.</p>
             </div>
             <div className="flex items-center gap-3">
               <span className="px-3 py-1.5 rounded-lg text-[10px] font-bold bg-violet-500/20 text-violet-400 border border-violet-500/30">
